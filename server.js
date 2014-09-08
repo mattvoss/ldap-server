@@ -108,13 +108,15 @@ server.bind(baseDn, function (req, res, next) {
   var username = req.dn.toString(),
       password = req.credentials,
       noUser = function() {
+        console.log("Invalid credentials for:", username);
         return next(new ldap.InvalidCredentialsError());
       },
       foundUser = function(user) {
+        console.log("Login successful for:", username);
         res.end();
         return next();
       };
-
+  console.log("Login attempt for:", username);
   if (username === adminDn) {
     if (password === adminPassword) {
       foundUser({"giveName": "admin"});
@@ -160,7 +162,7 @@ server.search(baseDn, function(req, res, next) {
       });
       user.attributes.mail = users[i].mail;
       delete user.attributes.dn;
-      console.log(user);
+      console.log("Search found:", users[i].uid);
       if (req.filter.matches(user.attributes)) {
         res.send(user);
       }
