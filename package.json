@@ -1,0 +1,34 @@
+{
+  "name": "ldap-server",
+  "version": "0.1.0",
+  "dependencies": {
+    "underscore": "latest",
+    "async": "latest",
+    "node-uuid": "latest",
+    "sequelize": "sequelize/sequelize",
+    "commander": "latest",
+    "glob": "latest",
+    "moment": "latest",
+    "nconf": "latest",
+    "mariasql": "latest",
+    "crypt3": "latest",
+    "ldapjs": "latest"
+  },
+  "devDependencies": {
+    "grunt": "latest",
+    "grunt-contrib-jshint": "latest",
+    "grunt-contrib-nodeunit": "latest",
+    "grunt-contrib-uglify": "latest",
+    "matchdep": "latest",
+    "grunt-contrib-copy": "latest",
+    "grunt-contrib-concat": "latest",
+    "grunt-contrib-watch": "latest",
+    "grunt-node-inspector": "latest",
+    "grunt-execute": "latest",
+    "grunt-json": "latest"
+  },
+  "scripts": {
+    "start": "node server"
+  },
+  "main": "server.js"
+}

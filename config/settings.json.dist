@@ -1,0 +1,18 @@
+{
+  "mysql":{
+    "host"     : "mysql:hostname",
+    "username" : "mysql:username",
+    "password" : "mysql:password",
+    "database" : "mysql:dbname",
+    "multipleStatements": true
+  },
+  "ldap": {
+    "port": 389,
+    "dn": "dc=example,dc=io",
+    "ou": "ou=people",
+    "admin": {
+      "user": "username",
+      "password": "password"
+    }
+  }
+}
