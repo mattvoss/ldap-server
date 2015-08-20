@@ -4,10 +4,15 @@
     "username" : "mysql:username",
     "password" : "mysql:password",
     "database" : "mysql:dbname",
-    "multipleStatements": true
+    "multipleStatements": true,
+    "userTable": "virtual_users"
+  },
+  "sqlite":{
+    "storage": "/path/to/sqlite/db",
+    "userTable": "users"
   },
   "ldap": {
-    "port": 389,
+    "port": 636,
     "dn": "dc=example,dc=io",
     "ou": "ou=people",
     "admin": {

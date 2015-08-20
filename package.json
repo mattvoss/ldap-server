@@ -1,18 +1,19 @@
 {
   "name": "ldap-server",
-  "version": "0.1.1",
+  "version": "0.1.5",
   "dependencies": {
-    "underscore": "latest",
-    "async": "latest",
-    "node-uuid": "latest",
-    "sequelize": "sequelize/sequelize",
-    "commander": "latest",
-    "glob": "latest",
-    "moment": "latest",
-    "nconf": "latest",
-    "mariasql": "latest",
-    "crypt3": "latest",
-    "ldapjs": "latest"
+    "async": "^1.4.0",
+    "bunyan": "^1.4.0",
+    "commander": "^2.8.1",
+    "crypt3": "^0.1.8",
+    "glob": "^5.0.14",
+    "ldapjs": "^0.7.1",
+    "moment": "^2.10.6",
+    "nconf": "^0.7.1",
+    "node-uuid": "^1.4.3",
+    "sequelize": "^3.5.1",
+    "sqlite3": "^3.0.9",
+    "underscore": "^1.8.3"
   },
   "devDependencies": {
     "grunt": "latest",

@@ -8,8 +8,15 @@ var fs = require('fs'),
     ldap = require('ldapjs'),
     Sequelize = require("sequelize"),
     crypt = require("crypt3"),
-    server = ldap.createServer(),
-    config, configFile, opts, db = {}, models = {};
+    bunyan = require('bunyan'),
+    logger = bunyan.createLogger({
+      name: 'ldapjs',
+      component: 'client',
+      stream: process.stderr,
+      serializers: bunyan.stdSerializers
+    }),
+    server,
+    config, configFile, opts = {}, db = {}, models = {}, dbTable;
 
 /*  ==============================================================
     Configuration
@@ -37,44 +44,54 @@ if (config.get("log")) {
   var access_logfile = fs.createWriteStream(config.get("log"), {flags: 'a'});
 }
 
-if (config.get("ssl")) {
-  if (config.get("ssl:key")) {
-    opts.key = fs.readFileSync(config.get("ssl:key"));
+if (config.get("ldap:ssl")) {
+  if (config.get("ldap:ssl:key")) {
+    console.log("key:", config.get("ldap:ssl:key"));
+    opts.key = fs.readFileSync(config.get("ldap:ssl:key")).toString('utf8');
   }
 
-  if (config.get("ssl:cert")) {
-    opts.cert = fs.readFileSync(config.get("ssl:cert"));
+  if (config.get("ldap:ssl:cert")) {
+    console.log("cert:", config.get("ldap:ssl:cert"));
+    opts.certificate = fs.readFileSync(config.get("ldap:ssl:cert")).toString('utf8');
   }
 
-  if (config.get("ssl:ca")) {
+  if (config.get("ldap:ssl:ca")) {
     opts.ca = [];
-    config.get("ssl:ca").forEach(function (ca, index, array) {
+    config.get("ldap:ssl:ca").forEach(function (ca, index, array) {
       opts.ca.push(fs.readFileSync(ca));
     });
   }
 }
 
-db.mail = new Sequelize(
-  config.get("mysql:database"),
-  config.get("mysql:username"),
-  config.get("mysql:password"),
-  {
-      dialect: 'mariadb',
-      omitNull: true,
-      host: config.get("mysql:host") || "localhost",
-      port: config.get("mysql:port") || 3306,
-      pool: { maxConnections: 5, maxIdleTime: 30},
-      define: {
-        freezeTableName: true,
-        timestamps: false
-      }
-  }
-);
+if (config.get("mysql")) {
+  db.mail = new Sequelize(
+    config.get("mysql:database"),
+    config.get("mysql:username"),
+    config.get("mysql:password"),
+    {
+        dialect: 'mysql',
+        host: config.get("mysql:host") || "localhost",
+        port: config.get("mysql:port") || 3306,
+        pool: { maxConnections: 5, maxIdleTime: 30}
+    }
+  );
+  dbTable = config.get("mysql:userTable");
+} else if (config.get("sqlite")) {
+  db.mail = new Sequelize(
+    '',
+    '',
+    '',
+    {
+        dialect: 'sqlite',
+        storage: config.get("sqlite:storage")
+    }
+  );
+  dbTable = config.get("sqlite:userTable");
+}
 
-models.VirtualUsers = db.mail.define('virtual_users',
+models.Users = db.mail.define(dbTable,
   {
     id:                   { type: Sequelize.INTEGER(11), primaryKey: true },
-    domain_id :           { type: Sequelize.INTEGER(11) },
     password:             { type: Sequelize.STRING(106) },
     email:                { type: Sequelize.STRING(120) },
     dn:                   { type: Sequelize.STRING(255) },
@@ -93,6 +110,8 @@ models.VirtualUsers = db.mail.define('virtual_users',
   }
 );
 
+opts.log = logger;
+server = ldap.createServer(opts);
 var port = config.get("ldap:port") || 389,
     dn = config.get("ldap:dn") || "dc=example,dc=com",
     baseDn = config.get("ldap:ou") + "," + config.get("ldap:dn") || "ou=people,dc=example,dc=com",
@@ -124,17 +143,18 @@ server.bind(baseDn, function (req, res, next) {
       noUser();
     }
   } else {
-    models.VirtualUsers.find({
+    models.Users.find({
       where: {
         dn: username
       }
-    }).success(function(user) {
-      //console.log(user);
+    }).then(function(user) {
+      //console.log(user.password);
       if (user !== null) {
-        var hash = crypt(password, user.password);
+        var encPass = user.password.replace("{SHA512-CRYPT}",""),
+            hash = crypt(password, encPass);
         //console.log("calculated hash:", hash);
-        //console.log("hash:", user.password);
-          if( hash === user.password ) {
+        //console.log("hash:", encPass);
+          if( hash === encPass ) {
             foundUser(user);
           } else {
             noUser();
@@ -149,26 +169,34 @@ server.bind(baseDn, function (req, res, next) {
 server.search(baseDn, function(req, res, next) {
   var binddn = req.connection.ldap.bindDN.toString();
 
-  models.VirtualUsers.findAll().success(function(users) {
-    for (var i = 0; i < users.length; i++) {
-      var user = {
-            dn: users[i].dn,
-            attributes: {
-              objectclass: ['top', 'organization', 'person', 'user']
-            }
-          };
-      Object.keys(users[i].dataValues).forEach(function(key) {
-        user.attributes[key] = [users[i].dataValues[key]];
-      });
-      user.attributes.mail = users[i].mail;
-      delete user.attributes.dn;
-      console.log("Search found:", users[i].uid);
-      if (req.filter.matches(user.attributes)) {
-        res.send(user);
+  models.Users.findAll({
+    where: {
+      dn: {
+       $ne: null
       }
     }
-    res.end();
-  });
+  }).then(
+    function(users) {
+      for (var i = 0; i < users.length; i++) {
+        var user = {
+              dn: users[i].dn,
+              attributes: {
+                objectclass: ['top', 'organization', 'person', 'user']
+              }
+            };
+        Object.keys(users[i].dataValues).forEach(function(key) {
+          user.attributes[key] = [users[i].dataValues[key]];
+        });
+        user.attributes.mail = users[i].mail;
+        delete user.attributes.dn;
+        console.log("Search found:", users[i].uid);
+        if (req.filter.matches(user.attributes)) {
+          res.send(user);
+        }
+      }
+      res.end();
+    }
+  );
 
 });
 
