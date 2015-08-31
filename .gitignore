@@ -6,3 +6,4 @@ config/analytics.txt
 access.log
 public/
 tmp/
+/ldap-server.log

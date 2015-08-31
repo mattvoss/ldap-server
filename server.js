@@ -12,7 +12,11 @@ var fs = require('fs'),
     logger = bunyan.createLogger({
       name: 'ldapjs',
       component: 'client',
-      stream: process.stderr,
+      streams: [
+        {
+          path: 'ldap-server.log'
+        }
+      ],
       serializers: bunyan.stdSerializers
     }),
     server,
@@ -46,12 +50,12 @@ if (config.get("log")) {
 
 if (config.get("ldap:ssl")) {
   if (config.get("ldap:ssl:key")) {
-    console.log("key:", config.get("ldap:ssl:key"));
+    logger.info("key:", config.get("ldap:ssl:key"));
     opts.key = fs.readFileSync(config.get("ldap:ssl:key")).toString('utf8');
   }
 
   if (config.get("ldap:ssl:cert")) {
-    console.log("cert:", config.get("ldap:ssl:cert"));
+    logger.info("cert:", config.get("ldap:ssl:cert"));
     opts.certificate = fs.readFileSync(config.get("ldap:ssl:cert")).toString('utf8');
   }
 
@@ -120,22 +124,22 @@ var port = config.get("ldap:port") || 389,
     adminPassword = config.get("ldap:admin:password") || "chiCoopooquoo5ai";
 
 server.listen(port, function() {
-  console.log('ldapjs listening at ' + server.url);
+  logger.info('ldapjs listening at ' + server.url);
 });
 
 server.bind(baseDn, function (req, res, next) {
   var username = req.dn.toString(),
       password = req.credentials,
       noUser = function() {
-        console.log("Invalid credentials for:", username);
+        logger.info("Invalid credentials for:", username);
         return next(new ldap.InvalidCredentialsError());
       },
       foundUser = function(user) {
-        console.log("Login successful for:", username);
+        logger.info("Login successful for:", username);
         res.end();
         return next();
       };
-  console.log("Login attempt for:", username);
+  logger.info("Login attempt for:", username);
   if (username === adminDn) {
     if (password === adminPassword) {
       foundUser({"giveName": "admin"});
@@ -148,12 +152,12 @@ server.bind(baseDn, function (req, res, next) {
         dn: username
       }
     }).then(function(user) {
-      //console.log(user.password);
+      //logger.info(user.password);
       if (user !== null) {
         var encPass = user.password.replace("{SHA512-CRYPT}",""),
             hash = crypt(password, encPass);
-        //console.log("calculated hash:", hash);
-        //console.log("hash:", encPass);
+        //logger.info("calculated hash:", hash);
+        //logger.info("hash:", encPass);
           if( hash === encPass ) {
             foundUser(user);
           } else {
@@ -189,7 +193,7 @@ server.search(baseDn, function(req, res, next) {
         });
         user.attributes.mail = users[i].mail;
         delete user.attributes.dn;
-        console.log("Search found:", users[i].uid);
+        logger.info("Search found:", users[i].uid);
         if (req.filter.matches(user.attributes)) {
           res.send(user);
         }
